@@ -18,10 +18,14 @@ export class SteloWebPipelineStack extends Stack {
 
     Tags.of(this).add('stelo:app', 'website');
     Tags.of(this).add('stelo:website:entity', 'pipeline');
-    const { region } = this;
+    const { region, account } = this;
 
     ['delivery.logs.amazonaws.com', 'cloudfront.amazonaws.com'].map(sp => Fact.register({ region, name: FactName.servicePrincipal(sp), value: sp }));
     const connectionArn = process.env.STELO_SITE_GIT_CONN_ARN ?? 'connectionArn';
+    const environmentVariables = {
+      STELO_SITE_GIT_CONN_ARN: { value: connectionArn },
+      STELO_SITE_ACCOUNT: { value: account }
+    };
 
     const pipeline = new CodePipeline(this, 'CodePipeline', {
       pipelineName: 'stelo-web',
@@ -32,7 +36,7 @@ export class SteloWebPipelineStack extends Stack {
       publishAssetsInParallel: false,
       useChangeSets: true,
       codeBuildDefaults: {
-        buildEnvironment: { buildImage: LinuxArmBuildImage.AMAZON_LINUX_2_STANDARD_3_0, computeType: ComputeType.SMALL }
+        buildEnvironment: { buildImage: LinuxArmBuildImage.AMAZON_LINUX_2_STANDARD_3_0, computeType: ComputeType.SMALL, environmentVariables }
       },
       synthCodeBuildDefaults: {
         logging: {
