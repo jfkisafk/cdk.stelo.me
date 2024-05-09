@@ -68,7 +68,7 @@ export class SteloWebPipelineStack extends Stack {
         }
       },
       synth: new ShellStep('Synth', {
-        input: CodePipelineSource.connection('jfkisafk/cdk.stelo.web', 'main', { connectionArn, codeBuildCloneOutput: true, actionName: 'cdk.stelo.web' }),
+        input: CodePipelineSource.connection('jfkisafk/cdk.stelo.me', 'main', { connectionArn, codeBuildCloneOutput: true, actionName: 'cdk.stelo.me' }),
         additionalInputs: {
           '../site': CodePipelineSource.connection('jfkisafk/website.stelo.me', 'main', { connectionArn, codeBuildCloneOutput: true, actionName: 'website.stelo.me' })
         },
