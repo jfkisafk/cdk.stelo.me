@@ -1,0 +1,27 @@
+{
+  "testMatch": [
+    "**/**.test.ts"
+  ],
+  "roots": [
+    "./test"
+  ],
+  "transform": {
+    ".ts": [
+      "ts-jest",
+      {
+        "isolatedModules": false
+      }
+    ]
+  },
+  "transformIgnorePatterns": [
+    "[/\\\\]node_modules[/\\\\].+\\.(js|jsx|ts|tsx|json)$",
+    "package.json"
+  ],
+  "collectCoverage": true,
+  "collectCoverageFrom": [
+    "./src/**/*.{!(d.ts),ts}"
+  ],
+  "coverageThreshold": {
+    "global": 95
+  }
+}
