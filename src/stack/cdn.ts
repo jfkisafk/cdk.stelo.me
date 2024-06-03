@@ -73,7 +73,7 @@ export class SteloWebCDNStack extends Stack {
     });
 
     const bucketDeployment = new BucketDeployment(this, 'AssetsDeployment', {
-      sources: [Source.asset(join(__dirname, `../../../${process.env.CODEBUILD_BUILD_ARN ? 'cdn' : 'stelo.cdn'}/`))],
+      sources: [Source.asset(join(__dirname, `../../../${process.env.CODEBUILD_BUILD_ARN ? 'cdn' : 'stelo.cdn'}/assets/`))],
       destinationBucket
     });
 
