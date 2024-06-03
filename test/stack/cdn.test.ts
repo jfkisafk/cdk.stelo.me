@@ -91,17 +91,24 @@ describe('SteloWebCDNStack', () => {
     };
 
     public hasDistribution = () => {
+      this.template.hasResourceProperties('AWS::Route53::HostedZone', { Name: 'cdn.stelo.dev.' });
       this.template.hasResourceProperties('AWS::CertificateManager::Certificate', {
-        DomainName: '*.stelo.app',
-        SubjectAlternativeNames: ['*.stelo.dev', '*.stelo.me', '*.stelo.info'],
+        DomainName: 'cdn.stelo.dev',
         ValidationMethod: 'DNS'
       });
+      this.template.hasResourceProperties('AWS::Route53::RecordSet', {
+        Name: 'cdn.stelo.dev.',
+        ResourceRecords: ['0 issue "amazon.com"'],
+        TTL: '1800',
+        Type: 'CAA'
+      });
+      this.template.hasResourceProperties('AWS::Route53::RecordSet', { Name: 'cdn.stelo.dev.', Type: 'A' });
       this.template.hasResourceProperties('AWS::CloudFront::OriginAccessControl', {
         OriginAccessControlConfig: Match.objectLike({ OriginAccessControlOriginType: 's3', SigningBehavior: 'always', SigningProtocol: 'sigv4' })
       });
       this.template.hasResourceProperties('AWS::CloudFront::Distribution', {
         DistributionConfig: Match.objectLike({
-          Aliases: ['cdn.stelo.dev', 'cdn.stelo.me', 'cdn.stelo.app', 'cdn.stelo.info'],
+          Aliases: ['cdn.stelo.dev'],
           CustomErrorResponses: [{ ErrorCode: 403, ResponseCode: 200, ResponsePagePath: '/index.html' }],
           DefaultCacheBehavior: Match.objectLike({ Compress: true, ViewerProtocolPolicy: 'redirect-to-https' }),
           DefaultRootObject: 'index.html',

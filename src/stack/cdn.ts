@@ -6,6 +6,8 @@ import { AccountRootPrincipal, CfnRole, CompositePrincipal, Effect, PolicyStatem
 import { Key } from 'aws-cdk-lib/aws-kms';
 import { CfnFunction } from 'aws-cdk-lib/aws-lambda';
 import { LogGroup, RetentionDays } from 'aws-cdk-lib/aws-logs';
+import { ARecord, PublicHostedZone, RecordTarget } from 'aws-cdk-lib/aws-route53';
+import { CloudFrontTarget } from 'aws-cdk-lib/aws-route53-targets';
 import { BlockPublicAccess, Bucket, BucketAccessControl, ObjectOwnership, StorageClass } from 'aws-cdk-lib/aws-s3';
 import { BucketDeployment, Source } from 'aws-cdk-lib/aws-s3-deployment';
 import { RegionInfo } from 'aws-cdk-lib/region-info';
@@ -71,7 +73,7 @@ export class SteloWebCDNStack extends Stack {
     });
 
     const bucketDeployment = new BucketDeployment(this, 'AssetsDeployment', {
-      sources: [Source.asset(join(__dirname, `../../../${process.env.CODEBUILD_BUILD_ARN ? 'site' : 'stelo.me'}/dist/`))],
+      sources: [Source.asset(join(__dirname, `../../../${process.env.CODEBUILD_BUILD_ARN ? 'cdn' : 'stelo.cdn'}/`))],
       destinationBucket
     });
 
@@ -91,12 +93,18 @@ export class SteloWebCDNStack extends Stack {
     NagSuppressions.addResourceSuppressions(serviceRole, [{ id: 'AwsSolutions-IAM4', reason: 'Managed policies are auto-added' }]);
     NagSuppressions.addResourceSuppressions(serviceRole.node.findChild('DefaultPolicy'), [{ id: 'AwsSolutions-IAM5', reason: 'Policies are auto-added' }]);
 
-    const certificate = new Certificate(this, 'DistroCertificate', {
-      domainName: '*.stelo.app',
-      subjectAlternativeNames: ['*.stelo.dev', '*.stelo.me', '*.stelo.info'],
-      certificateName: 'stelo-web',
-      validation: CertificateValidation.fromDns()
+    const domainName = 'cdn.stelo.dev';
+    const hostedZone = new PublicHostedZone(this, 'AssetsHostedZone', {
+      zoneName: domainName,
+      caaAmazon: true,
+      comment: `Delegation for ${domainName} resources`
     });
+    const certificate = new Certificate(this, 'AssetsCertificate', {
+      domainName,
+      certificateName: 'stelo-cdn',
+      validation: CertificateValidation.fromDns(hostedZone)
+    });
+
     const oac = new CfnOriginAccessControl(this, 'OriginAccessControl', {
       originAccessControlConfig: {
         description: 'sigv4 for stelo.dev origin bucket',
@@ -106,10 +114,10 @@ export class SteloWebCDNStack extends Stack {
         signingProtocol: 'sigv4'
       }
     });
-    const distro = new Distribution(this, 'AssetDistro', {
-      domainNames: ['cdn.stelo.dev', 'cdn.stelo.me', 'cdn.stelo.app', 'cdn.stelo.info'],
+    const distro = new Distribution(this, 'AssetsDistro', {
+      domainNames: ['cdn.stelo.dev'],
       certificate,
-      comment: 'Distribution for stelo.dev and stelo.me',
+      comment: 'Distribution for getting assets',
       defaultRootObject: 'index.html',
       defaultBehavior: {
         viewerProtocolPolicy: ViewerProtocolPolicy.REDIRECT_TO_HTTPS,
@@ -121,6 +129,14 @@ export class SteloWebCDNStack extends Stack {
       logFilePrefix: 'stelo.dev/cdn/',
       errorResponses: [{ responseHttpStatus: 200, responsePagePath: '/index.html', httpStatus: 403 }],
       geoRestriction: GeoRestriction.denylist('CU', 'IR', 'KP', 'SY', 'UA', 'CN', 'PK')
+    });
+
+    new ARecord(this, 'AssetsAlias', {
+      deleteExisting: true,
+      recordName: hostedZone.zoneName,
+      zone: hostedZone,
+      comment: 'Routes traffic to assets distribution',
+      target: RecordTarget.fromAlias(new CloudFrontTarget(distro))
     });
 
     NagSuppressions.addResourceSuppressions(distro, [{ id: 'AwsSolutions-CFR2', reason: 'WAF protection is expensive' }]);
