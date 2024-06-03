@@ -92,8 +92,8 @@ describe('SteloWebCDNStack', () => {
 
     public hasDistribution = () => {
       this.template.hasResourceProperties('AWS::CertificateManager::Certificate', {
-        DomainName: 'stelo.dev',
-        SubjectAlternativeNames: ['*.stelo.dev', 'stelo.me', '*.stelo.me'],
+        DomainName: '*.stelo.app',
+        SubjectAlternativeNames: ['*.stelo.dev', '*.stelo.me', '*.stelo.info'],
         ValidationMethod: 'DNS'
       });
       this.template.hasResourceProperties('AWS::CloudFront::OriginAccessControl', {
@@ -101,7 +101,7 @@ describe('SteloWebCDNStack', () => {
       });
       this.template.hasResourceProperties('AWS::CloudFront::Distribution', {
         DistributionConfig: Match.objectLike({
-          Aliases: ['stelo.dev', 'stelo.me', 'www.stelo.dev', 'www.stelo.me'],
+          Aliases: ['cdn.stelo.dev', 'cdn.stelo.me', 'cdn.stelo.app', 'cdn.stelo.info'],
           CustomErrorResponses: [{ ErrorCode: 403, ResponseCode: 200, ResponsePagePath: '/index.html' }],
           DefaultCacheBehavior: Match.objectLike({ Compress: true, ViewerProtocolPolicy: 'redirect-to-https' }),
           DefaultRootObject: 'index.html',

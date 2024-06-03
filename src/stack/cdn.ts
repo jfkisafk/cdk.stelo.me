@@ -71,7 +71,7 @@ export class SteloWebCDNStack extends Stack {
     });
 
     const bucketDeployment = new BucketDeployment(this, 'AssetsDeployment', {
-      sources: [Source.asset(join(__dirname, `../../../${process.env.CODEBUILD_BUILD_ARN ? 'site' : 'website.stelo.me'}/dist/`))],
+      sources: [Source.asset(join(__dirname, `../../../${process.env.CODEBUILD_BUILD_ARN ? 'site' : 'stelo.me'}/dist/`))],
       destinationBucket
     });
 
@@ -91,9 +91,9 @@ export class SteloWebCDNStack extends Stack {
     NagSuppressions.addResourceSuppressions(serviceRole, [{ id: 'AwsSolutions-IAM4', reason: 'Managed policies are auto-added' }]);
     NagSuppressions.addResourceSuppressions(serviceRole.node.findChild('DefaultPolicy'), [{ id: 'AwsSolutions-IAM5', reason: 'Policies are auto-added' }]);
 
-    const certificate = new Certificate(this, 'Certificate', {
-      domainName: 'stelo.dev',
-      subjectAlternativeNames: ['*.stelo.dev', 'stelo.me', '*.stelo.me'],
+    const certificate = new Certificate(this, 'DistroCertificate', {
+      domainName: '*.stelo.app',
+      subjectAlternativeNames: ['*.stelo.dev', '*.stelo.me', '*.stelo.info'],
       certificateName: 'stelo-web',
       validation: CertificateValidation.fromDns()
     });
@@ -107,7 +107,7 @@ export class SteloWebCDNStack extends Stack {
       }
     });
     const distro = new Distribution(this, 'AssetDistro', {
-      domainNames: ['stelo.dev', 'stelo.me', 'www.stelo.dev', 'www.stelo.me'],
+      domainNames: ['cdn.stelo.dev', 'cdn.stelo.me', 'cdn.stelo.app', 'cdn.stelo.info'],
       certificate,
       comment: 'Distribution for stelo.dev and stelo.me',
       defaultRootObject: 'index.html',
