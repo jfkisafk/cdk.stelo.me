@@ -1,6 +1,15 @@
 import { Aspects, CfnResource, Duration, RemovalPolicy, Stack, StackProps, Stage, StageProps, Tags } from 'aws-cdk-lib';
 import { Certificate, CertificateValidation } from 'aws-cdk-lib/aws-certificatemanager';
-import { CfnOriginAccessControl, Distribution, GeoRestriction, HttpVersion, PriceClass, ViewerProtocolPolicy } from 'aws-cdk-lib/aws-cloudfront';
+import {
+  CachedMethods,
+  CfnOriginAccessControl,
+  Distribution,
+  GeoRestriction, HeadersFrameOption, HeadersReferrerPolicy,
+  HttpVersion,
+  PriceClass,
+  ResponseHeadersPolicy,
+  ViewerProtocolPolicy
+} from 'aws-cdk-lib/aws-cloudfront';
 import { S3Origin } from 'aws-cdk-lib/aws-cloudfront-origins';
 import { AccountRootPrincipal, CfnRole, CompositePrincipal, Effect, PolicyStatement, ServicePrincipal } from 'aws-cdk-lib/aws-iam';
 import { Key } from 'aws-cdk-lib/aws-kms';
@@ -121,7 +130,27 @@ export class SteloWebCDNStack extends Stack {
       defaultRootObject: 'index.html',
       defaultBehavior: {
         viewerProtocolPolicy: ViewerProtocolPolicy.REDIRECT_TO_HTTPS,
-        origin: new S3Origin(destinationBucket, { originId: destinationBucket.bucketRegionalDomainName })
+        origin: new S3Origin(destinationBucket, { originId: destinationBucket.bucketRegionalDomainName }),
+        cachedMethods: CachedMethods.CACHE_GET_HEAD_OPTIONS,
+        responseHeadersPolicy: new ResponseHeadersPolicy(this, 'AssetsResponseHeadersPolicy', {
+          responseHeadersPolicyName: 'stelo-cdn-cors',
+          comment: 'Adds CORS and security headers',
+          corsBehavior: {
+            accessControlAllowOrigins: ['stelo.info', 'stelo.app', 'stelo.dev', 'stelo.me'].flatMap(o => [`https://${o}`, `http://*.${o}`]),
+            accessControlAllowHeaders: ['*'],
+            accessControlMaxAge: Duration.hours(1),
+            accessControlAllowMethods: ['GET', 'HEAD'],
+            originOverride: true,
+            accessControlAllowCredentials: false
+          },
+          securityHeadersBehavior: {
+            contentTypeOptions: { override: true },
+            frameOptions: { frameOption: HeadersFrameOption.SAMEORIGIN, override: true },
+            referrerPolicy: { referrerPolicy: HeadersReferrerPolicy.STRICT_ORIGIN_WHEN_CROSS_ORIGIN, override: true },
+            strictTransportSecurity: { accessControlMaxAge: Duration.days(365), includeSubdomains: true, override: true },
+            xssProtection: { protection: true, modeBlock: true, override: true },
+          }
+        })
       },
       httpVersion: HttpVersion.HTTP2_AND_3,
       logBucket: logsBucket,

@@ -1,5 +1,5 @@
 import { App } from 'aws-cdk-lib';
-import { Match, Template } from 'aws-cdk-lib/assertions';
+import { Annotations, Match, Template } from 'aws-cdk-lib/assertions';
 import { Fact, FactName } from 'aws-cdk-lib/region-info';
 
 import { SteloWebCDNStack } from '../../src/stack/cdn';
@@ -110,7 +110,7 @@ describe('SteloWebCDNStack', () => {
         DistributionConfig: Match.objectLike({
           Aliases: ['cdn.stelo.dev'],
           CustomErrorResponses: [{ ErrorCode: 403, ResponseCode: 200, ResponsePagePath: '/index.html' }],
-          DefaultCacheBehavior: Match.objectLike({ Compress: true, ViewerProtocolPolicy: 'redirect-to-https' }),
+          DefaultCacheBehavior: Match.objectLike({ Compress: true, ViewerProtocolPolicy: 'redirect-to-https', CachedMethods: ['GET', 'HEAD', 'OPTIONS'] }),
           DefaultRootObject: 'index.html',
           Enabled: true,
           HttpVersion: 'http2and3',
@@ -121,11 +121,35 @@ describe('SteloWebCDNStack', () => {
           Origins: [Match.objectLike({ OriginAccessControlId: { 'Fn::GetAtt': ['OriginAccessControl', 'Id'] }, S3OriginConfig: { OriginAccessIdentity: '' } })]
         })
       });
+      this.template.hasResourceProperties('AWS::CloudFront::ResponseHeadersPolicy', {
+        ResponseHeadersPolicyConfig: {
+          Comment: 'Adds CORS and security headers',
+          CorsConfig: {
+            AccessControlAllowCredentials: false,
+            AccessControlAllowHeaders: { Items: ['*'] },
+            AccessControlAllowMethods: { Items: ['GET', 'HEAD'] },
+            AccessControlAllowOrigins: { Items: ['stelo.info', 'stelo.app', 'stelo.dev', 'stelo.me'].flatMap(o => [`https://${o}`, `http://*.${o}`]) },
+            AccessControlMaxAgeSec: 3600,
+            OriginOverride: true
+          },
+          Name: 'stelo-cdn-cors',
+          SecurityHeadersConfig: {
+            ContentTypeOptions: { Override: true },
+            FrameOptions: { FrameOption: 'SAMEORIGIN', Override: true },
+            ReferrerPolicy: { Override: true, ReferrerPolicy: 'strict-origin-when-cross-origin' },
+            StrictTransportSecurity: { AccessControlMaxAgeSec: 31536000, IncludeSubdomains: true, Override: true },
+            XSSProtection: { ModeBlock: true, Override: true, Protection: true }
+          }
+        }
+      });
     };
   }
 
   it('expect resources to be generated', () => {
     const template = new SteloWebCDNTemplate(stack);
+    const annotations = Annotations.fromStack(stack);
+    expect(annotations.findWarning('*', Match.stringLikeRegexp('AwsSolutions-.*'))).toHaveLength(0);
+    expect(annotations.findError('*', Match.stringLikeRegexp('AwsSolutions-.*'))).toHaveLength(0);
 
     template.hasBuckets();
     template.hasDistribution();
