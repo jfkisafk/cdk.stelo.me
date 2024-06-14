@@ -1,6 +1,7 @@
 import { Aspects, CfnResource, Duration, RemovalPolicy, Stack, StackProps, Stage, StageProps, Tags } from 'aws-cdk-lib';
 import { Certificate, CertificateValidation } from 'aws-cdk-lib/aws-certificatemanager';
 import {
+  AllowedMethods,
   CachedMethods,
   CfnOriginAccessControl,
   Distribution,
@@ -131,6 +132,7 @@ export class SteloWebCDNStack extends Stack {
       defaultBehavior: {
         viewerProtocolPolicy: ViewerProtocolPolicy.REDIRECT_TO_HTTPS,
         origin: new S3Origin(destinationBucket, { originId: destinationBucket.bucketRegionalDomainName }),
+        allowedMethods: AllowedMethods.ALLOW_GET_HEAD_OPTIONS,
         cachedMethods: CachedMethods.CACHE_GET_HEAD_OPTIONS,
         responseHeadersPolicy: new ResponseHeadersPolicy(this, 'AssetsResponseHeadersPolicy', {
           responseHeadersPolicyName: 'stelo-cdn-cors',

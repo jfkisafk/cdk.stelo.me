@@ -110,7 +110,12 @@ describe('SteloWebCDNStack', () => {
         DistributionConfig: Match.objectLike({
           Aliases: ['cdn.stelo.dev'],
           CustomErrorResponses: [{ ErrorCode: 403, ResponseCode: 200, ResponsePagePath: '/index.html' }],
-          DefaultCacheBehavior: Match.objectLike({ Compress: true, ViewerProtocolPolicy: 'redirect-to-https', CachedMethods: ['GET', 'HEAD', 'OPTIONS'] }),
+          DefaultCacheBehavior: Match.objectLike({
+            Compress: true,
+            ViewerProtocolPolicy: 'redirect-to-https',
+            CachedMethods: ['GET', 'HEAD', 'OPTIONS'],
+            AllowedMethods: ['GET', 'HEAD', 'OPTIONS']
+          }),
           DefaultRootObject: 'index.html',
           Enabled: true,
           HttpVersion: 'http2and3',
