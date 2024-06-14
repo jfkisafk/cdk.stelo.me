@@ -139,7 +139,7 @@ export class SteloWebCDNStack extends Stack {
           comment: 'Adds CORS and security headers',
           removeHeaders: ['etag', 'server', 'x-amz-server-side-encryption', 'x-amz-server-side-encryption-aws-kms-key-id'],
           corsBehavior: {
-            accessControlAllowOrigins: ['stelo.info', 'stelo.app', 'stelo.dev', 'stelo.me'].flatMap(o => [`https://${o}`, `http://*.${o}`]),
+            accessControlAllowOrigins: ['stelo.info', 'stelo.app', 'stelo.dev', 'stelo.me'].flatMap(o => [`https://${o}`, `https://*.${o}`]),
             accessControlAllowHeaders: ['*'],
             accessControlMaxAge: Duration.hours(1),
             accessControlAllowMethods: ['GET', 'HEAD'],
@@ -147,6 +147,7 @@ export class SteloWebCDNStack extends Stack {
             accessControlAllowCredentials: false
           },
           securityHeadersBehavior: {
+            contentSecurityPolicy: { override: true, contentSecurityPolicy: `${["default-src 'self'", ...(['stelo.info', 'stelo.app', 'stelo.dev', 'stelo.me'].flatMap(o => [`https://${o}`, `https://*.${o}`]))].join(' ')};` },
             contentTypeOptions: { override: true },
             frameOptions: { frameOption: HeadersFrameOption.SAMEORIGIN, override: true },
             referrerPolicy: { referrerPolicy: HeadersReferrerPolicy.STRICT_ORIGIN_WHEN_CROSS_ORIGIN, override: true },

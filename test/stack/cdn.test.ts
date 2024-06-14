@@ -133,18 +133,30 @@ describe('SteloWebCDNStack', () => {
             AccessControlAllowCredentials: false,
             AccessControlAllowHeaders: { Items: ['*'] },
             AccessControlAllowMethods: { Items: ['GET', 'HEAD'] },
-            AccessControlAllowOrigins: { Items: ['stelo.info', 'stelo.app', 'stelo.dev', 'stelo.me'].flatMap(o => [`https://${o}`, `http://*.${o}`]) },
+            AccessControlAllowOrigins: { Items: ['stelo.info', 'stelo.app', 'stelo.dev', 'stelo.me'].flatMap(o => [`https://${o}`, `https://*.${o}`]) },
             AccessControlMaxAgeSec: 3600,
             OriginOverride: true
           },
           Name: 'stelo-cdn-cors',
           SecurityHeadersConfig: {
+            ContentSecurityPolicy: {
+              ContentSecurityPolicy: "default-src 'self' https://stelo.info https://*.stelo.info https://stelo.app https://*.stelo.app https://stelo.dev https://*.stelo.dev https://stelo.me https://*.stelo.me;",
+              Override: true
+            },
             ContentTypeOptions: { Override: true },
             FrameOptions: { FrameOption: 'SAMEORIGIN', Override: true },
             ReferrerPolicy: { Override: true, ReferrerPolicy: 'strict-origin-when-cross-origin' },
             StrictTransportSecurity: { AccessControlMaxAgeSec: 31536000, IncludeSubdomains: true, Override: true },
             XSSProtection: { ModeBlock: true, Override: true, Protection: true }
-          }
+          },
+          RemoveHeadersConfig: {
+            Items: [
+              { Header: 'etag' },
+              { Header: 'server' },
+              { Header: 'x-amz-server-side-encryption' },
+              { Header: 'x-amz-server-side-encryption-aws-kms-key-id' }
+            ]
+          },
         }
       });
     };
