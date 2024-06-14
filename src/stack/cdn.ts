@@ -137,6 +137,7 @@ export class SteloWebCDNStack extends Stack {
         responseHeadersPolicy: new ResponseHeadersPolicy(this, 'AssetsResponseHeadersPolicy', {
           responseHeadersPolicyName: 'stelo-cdn-cors',
           comment: 'Adds CORS and security headers',
+          removeHeaders: ['etag', 'server', 'x-amz-server-side-encryption', 'x-amz-server-side-encryption-aws-kms-key-id'],
           corsBehavior: {
             accessControlAllowOrigins: ['stelo.info', 'stelo.app', 'stelo.dev', 'stelo.me'].flatMap(o => [`https://${o}`, `http://*.${o}`]),
             accessControlAllowHeaders: ['*'],
