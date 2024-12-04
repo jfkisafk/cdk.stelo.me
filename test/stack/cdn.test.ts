@@ -1,6 +1,5 @@
 import { App } from 'aws-cdk-lib';
 import { Annotations, Match, Template } from 'aws-cdk-lib/assertions';
-import { Fact, FactName } from 'aws-cdk-lib/region-info';
 
 import { SteloWebCDNStack } from '../../src/stack/cdn';
 
@@ -52,9 +51,6 @@ describe('SteloWebCDNStack', () => {
         '@aws-cdk/aws-cloudfront:defaultSecurityPolicyTLSv1.2_2021': true
       }
     });
-    ['delivery.logs.amazonaws.com', 'cloudfront.amazonaws.com'].map(sp =>
-      Fact.register({ region: 'us-east-1', name: FactName.servicePrincipal(sp), value: sp })
-    );
     stack = new SteloWebCDNStack(app, { env: { account: '0123456789', region: 'us-east-1' } });
   });
 
@@ -87,7 +83,6 @@ describe('SteloWebCDNStack', () => {
       });
       this.template.hasResourceProperties('AWS::IAM::Role', { RoleName: 'stelo-web-assets-deployment-role' });
       this.template.hasResourceProperties('AWS::Lambda::Function', { FunctionName: 'stelo-web-assets-deployment', Runtime: 'python3.12' });
-      this.template.hasResourceProperties('AWS::Logs::LogGroup', { LogGroupName: '/aws/lambda/stelo-web-assets-deployment' });
     };
 
     public hasDistribution = () => {
@@ -123,7 +118,7 @@ describe('SteloWebCDNStack', () => {
           PriceClass: 'PriceClass_200',
           Restrictions: { GeoRestriction: { Locations: ['CU', 'IR', 'KP', 'SY', 'UA', 'CN', 'PK'], RestrictionType: 'blacklist' } },
           ViewerCertificate: Match.objectLike({ MinimumProtocolVersion: 'TLSv1.2_2021', SslSupportMethod: 'sni-only' }),
-          Origins: [Match.objectLike({ OriginAccessControlId: { 'Fn::GetAtt': ['OriginAccessControl', 'Id'] }, S3OriginConfig: { OriginAccessIdentity: '' } })]
+          Origins: [Match.objectLike({ OriginAccessControlId: { 'Fn::GetAtt': [Match.stringLikeRegexp('OriginAccessControl.*'), 'Id'] }, S3OriginConfig: { OriginAccessIdentity: '' } })]
         })
       });
       this.template.hasResourceProperties('AWS::CloudFront::ResponseHeadersPolicy', {

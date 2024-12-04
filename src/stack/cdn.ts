@@ -3,15 +3,17 @@ import { Certificate, CertificateValidation } from 'aws-cdk-lib/aws-certificatem
 import {
   AllowedMethods,
   CachedMethods,
-  CfnOriginAccessControl,
   Distribution,
-  GeoRestriction, HeadersFrameOption, HeadersReferrerPolicy,
+  GeoRestriction, 
+  HeadersFrameOption, 
+  HeadersReferrerPolicy,
   HttpVersion,
   PriceClass,
-  ResponseHeadersPolicy,
+  ResponseHeadersPolicy, 
+  S3OriginAccessControl,
   ViewerProtocolPolicy
 } from 'aws-cdk-lib/aws-cloudfront';
-import { S3Origin } from 'aws-cdk-lib/aws-cloudfront-origins';
+import { S3BucketOrigin } from 'aws-cdk-lib/aws-cloudfront-origins';
 import { AccountRootPrincipal, CfnRole, CompositePrincipal, Effect, PolicyStatement, ServicePrincipal } from 'aws-cdk-lib/aws-iam';
 import { Key } from 'aws-cdk-lib/aws-kms';
 import { CfnFunction } from 'aws-cdk-lib/aws-lambda';
@@ -20,7 +22,6 @@ import { ARecord, PublicHostedZone, RecordTarget } from 'aws-cdk-lib/aws-route53
 import { CloudFrontTarget } from 'aws-cdk-lib/aws-route53-targets';
 import { BlockPublicAccess, Bucket, BucketAccessControl, ObjectOwnership, StorageClass } from 'aws-cdk-lib/aws-s3';
 import { BucketDeployment, Source } from 'aws-cdk-lib/aws-s3-deployment';
-import { RegionInfo } from 'aws-cdk-lib/region-info';
 import { AwsSolutionsChecks, NagReportFormat, NagSuppressions } from 'cdk-nag';
 import { Construct } from 'constructs';
 import { join } from 'path';
@@ -37,7 +38,6 @@ export class SteloWebCDNStack extends Stack {
 
     Tags.of(this).add('stelo:app', 'website');
     Tags.of(this).add('stelo:website:entity', 'infrastructure');
-    const regionInfo = RegionInfo.get(this.region);
 
     const encryptionKey = new Key(this, 'EncryptionKey', {
       enabled: true,
@@ -50,7 +50,7 @@ export class SteloWebCDNStack extends Stack {
       new CompositePrincipal(
         new AccountRootPrincipal(),
         ...['s3.amazonaws.com', 'logs.amazonaws.com', 'delivery.logs.amazonaws.com', 'cloudfront.amazonaws.com'].map(
-          sp => new ServicePrincipal(regionInfo.servicePrincipal(sp) ?? '')
+          sp => new ServicePrincipal(ServicePrincipal.servicePrincipalName(sp))
         )
       )
     );
@@ -88,15 +88,16 @@ export class SteloWebCDNStack extends Stack {
     });
 
     const deploymentFn = this.node.findChild('Custom::CDKBucketDeployment8693BB64968944B69AAFB0CC9EB8756C').node.findChild('Resource') as CfnFunction;
-    deploymentFn.runtime = 'python3.12';
-    deploymentFn.functionName = 'stelo-web-assets-deployment';
+    deploymentFn.addPropertyOverride('Runtime', 'python3.12');
+    deploymentFn.addPropertyOverride('FunctionName', 'stelo-web-assets-deployment');
     const deploymentFnLogs = new LogGroup(this, 'AssetsDeploymentFunctionLogs', {
-      logGroupName: `/aws/lambda/${deploymentFn.functionName}`,
+      logGroupName: `/aws/lambda/${deploymentFn.ref}`,
       removalPolicy: RemovalPolicy.DESTROY,
       retention: RetentionDays.TWO_MONTHS,
       encryptionKey
     });
     bucketDeployment.node.findChild('CustomResource').node.addDependency(deploymentFnLogs);
+    NagSuppressions.addResourceSuppressions(deploymentFn, [{ id: 'AwsSolutions-L1', reason: 'Through escape hatch' }]);
 
     const serviceRole = this.node.findChild('Custom::CDKBucketDeployment8693BB64968944B69AAFB0CC9EB8756C').node.findChild('ServiceRole');
     (serviceRole.node.defaultChild as CfnRole).roleName = 'stelo-web-assets-deployment-role';
@@ -115,15 +116,6 @@ export class SteloWebCDNStack extends Stack {
       validation: CertificateValidation.fromDns(hostedZone)
     });
 
-    const oac = new CfnOriginAccessControl(this, 'OriginAccessControl', {
-      originAccessControlConfig: {
-        description: 'sigv4 for stelo.dev origin bucket',
-        name: destinationBucket.bucketRegionalDomainName,
-        originAccessControlOriginType: 's3',
-        signingBehavior: 'always',
-        signingProtocol: 'sigv4'
-      }
-    });
     const distro = new Distribution(this, 'AssetsDistro', {
       domainNames: ['cdn.stelo.dev'],
       certificate,
@@ -131,7 +123,7 @@ export class SteloWebCDNStack extends Stack {
       defaultRootObject: 'index.html',
       defaultBehavior: {
         viewerProtocolPolicy: ViewerProtocolPolicy.REDIRECT_TO_HTTPS,
-        origin: new S3Origin(destinationBucket, { originId: destinationBucket.bucketRegionalDomainName }),
+        origin: S3BucketOrigin.withOriginAccessControl(destinationBucket, { originAccessControl: new S3OriginAccessControl(this, 'OriginAccessControl', { description: 'sigv4 for stelo.dev origin bucket', originAccessControlName: destinationBucket.bucketName }) }),
         allowedMethods: AllowedMethods.ALLOW_GET_HEAD_OPTIONS,
         cachedMethods: CachedMethods.CACHE_GET_HEAD_OPTIONS,
         responseHeadersPolicy: new ResponseHeadersPolicy(this, 'AssetsResponseHeadersPolicy', {
@@ -173,12 +165,9 @@ export class SteloWebCDNStack extends Stack {
     });
 
     NagSuppressions.addResourceSuppressions(distro, [{ id: 'AwsSolutions-CFR2', reason: 'WAF protection is expensive' }]);
-    distro.node.findChild('Origin1').node.tryRemoveChild('S3Origin');
-    (distro.node.defaultChild as CfnResource).addPropertyOverride('DistributionConfig.Origins.0.S3OriginConfig.OriginAccessIdentity', '');
-    (distro.node.defaultChild as CfnResource).addPropertyOverride('DistributionConfig.Origins.0.OriginAccessControlId', oac.attrId);
     destinationBucket.addToResourcePolicy(
       new PolicyStatement({
-        principals: [new ServicePrincipal(regionInfo.servicePrincipal('cloudfront.amazonaws.com') ?? '')],
+        principals: [new ServicePrincipal(ServicePrincipal.servicePrincipalName('cloudfront.amazonaws.com'))],
         actions: ['s3:GetObject'],
         resources: [destinationBucket.arnForObjects('*')],
         effect: Effect.ALLOW,

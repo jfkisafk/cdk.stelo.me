@@ -2,7 +2,6 @@ import { RemovalPolicy, Stack, StackProps, Tags } from 'aws-cdk-lib';
 import { ComputeType, LinuxArmBuildImage } from 'aws-cdk-lib/aws-codebuild';
 import { LogGroup, RetentionDays } from 'aws-cdk-lib/aws-logs';
 import { CodePipeline, CodePipelineSource, ShellStep } from 'aws-cdk-lib/pipelines';
-import { Fact, FactName } from 'aws-cdk-lib/region-info';
 import { Construct } from 'constructs';
 
 import { SteloWebCDNStage } from './cdn';
@@ -18,9 +17,8 @@ export class SteloWebPipelineStack extends Stack {
 
     Tags.of(this).add('stelo:app', 'website');
     Tags.of(this).add('stelo:website:entity', 'pipeline');
-    const { region, account } = this;
+    const { account } = this;
 
-    ['delivery.logs.amazonaws.com', 'cloudfront.amazonaws.com'].map(sp => Fact.register({ region, name: FactName.servicePrincipal(sp), value: sp }));
     const connectionArn = process.env.STELO_SITE_GIT_CONN_ARN ?? 'connectionArn';
     const environmentVariables = {
       STELO_SITE_GIT_CONN_ARN: { value: connectionArn },
