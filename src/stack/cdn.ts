@@ -1,4 +1,4 @@
-import { Aspects, CfnResource, Duration, RemovalPolicy, Stack, StackProps, Stage, StageProps, Tags } from 'aws-cdk-lib';
+import { Aspects, Duration, RemovalPolicy, Stack, StackProps, Stage, StageProps, Tags } from 'aws-cdk-lib';
 import { Certificate, CertificateValidation } from 'aws-cdk-lib/aws-certificatemanager';
 import {
   AllowedMethods,
@@ -14,7 +14,7 @@ import {
   ViewerProtocolPolicy
 } from 'aws-cdk-lib/aws-cloudfront';
 import { S3BucketOrigin } from 'aws-cdk-lib/aws-cloudfront-origins';
-import { AccountRootPrincipal, CfnRole, CompositePrincipal, Effect, PolicyStatement, ServicePrincipal } from 'aws-cdk-lib/aws-iam';
+import { AccountRootPrincipal, CfnRole, CompositePrincipal, ServicePrincipal } from 'aws-cdk-lib/aws-iam';
 import { Key } from 'aws-cdk-lib/aws-kms';
 import { CfnFunction } from 'aws-cdk-lib/aws-lambda';
 import { LogGroup, RetentionDays } from 'aws-cdk-lib/aws-logs';
@@ -165,16 +165,6 @@ export class SteloWebCDNStack extends Stack {
     });
 
     NagSuppressions.addResourceSuppressions(distro, [{ id: 'AwsSolutions-CFR2', reason: 'WAF protection is expensive' }]);
-    destinationBucket.addToResourcePolicy(
-      new PolicyStatement({
-        principals: [new ServicePrincipal(ServicePrincipal.servicePrincipalName('cloudfront.amazonaws.com'))],
-        actions: ['s3:GetObject'],
-        resources: [destinationBucket.arnForObjects('*')],
-        effect: Effect.ALLOW,
-        conditions: { StringEquals: { 'AWS:SourceArn': `arn:aws:cloudfront::${this.account}:distribution/${distro.distributionId}` } }
-      })
-    );
-    (destinationBucket.policy?.node.defaultChild as CfnResource).addPropertyDeletionOverride('PolicyDocument.Statement.3');
   }
 }
 
